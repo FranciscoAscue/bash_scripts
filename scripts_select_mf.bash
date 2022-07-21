@@ -19,11 +19,16 @@ cd Project/data/
 pangolin genomes_select.fasta --alignment --outfile  genomes_select_pangolin.csv --max-ambig 0.1 --min-length 28000 -t 14
 
 
+cut -f 1 ../data/gisaid.total.metadata.tsv | sort -R | tail -n 500 > 500select.txt
 
+samtools faidx ../data/gisaid.total.fasta $(cat 500select.txt) > 500select.fast
 
 
 ### zsh exe
 ### replace from file mutiple times 
+
+awk '{print $1" "$1$5}' metadata_select500.tsv > file_rep.txt
+
 while read -r pattern change;             
 do
   sed -i "s&$pattern&$change&" 500select.fasta
