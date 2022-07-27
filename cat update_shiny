@@ -1,0 +1,16 @@
+#!/bin/bash
+
+COR=$1
+META=$2
+cp $META ${META}.back
+
+for i in $COR
+do
+	./metadaShiny_sql -n $i -o $i	
+	cat ${i}.csv | fgrep -v "NUMERACION_PLACA" | fgrep -v "None" >> $META	
+done
+
+sed -i "s/Omicron (BA.1-like)/Omicron/g" $META
+sed -i "s/Omicron (BA.2-like)/Omicron/g" $META
+sed -i "s/Omicron (BA.4-like)/Omicron/g" $META
+sed -i "s/Omicron (BA.5-like)/Omicron/g" $META
