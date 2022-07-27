@@ -1,0 +1,120 @@
+#!/bin/bash
+
+
+#####################################################################################################################
+#					DOWNLOAD DATA FROM MYSQL DATABASE SEQCOVIDDB SARS		    	    #
+#						  BY: FRANCISCO ASCUE						    #
+#					email: francisco.ascue131@gmail.com					    #
+#####################################################################################################################
+
+
+usage="$(basename "$0") -- Program for download Data from MySQL Database seqcoviddb and SARS_GENOMES
+usage: $(basename "$0") -n <corrida> -f <file.txt with netlab's list>
+where:
+    -h 			Show this help text
+    -n 	<Nº corrida>	# de corrida
+    -f  <Id list>	file with list of NETLAB
+    -o <output name> 	default file.csv output
+"
+
+
+
+COR=""
+NAME=""
+OUT="file"
+SEP="\n"
+
+while getopts ':h:n:f:o:' option; do
+  case "$option" in
+    h) echo "$usage"
+       exit
+       ;;
+    n) COR=$OPTARG
+	;;
+    f) NAME=$OPTARG
+       ;;
+    o) OUT=$OPTARG
+	;;
+    :) printf "missing argument for -%s\n" "$OPTARG" >&2
+       echo "$usage" >&2
+       exit 1
+       ;;
+   \?) printf "illegal option: -%s\n" "$OPTARG" >&2
+       echo "$usage" >&2
+       exit 1
+       	;;
+  esac
+done
+
+
+if [ "$COR" != "" ] || [ "$NAME" != "" ] 
+then
+
+	Rscript -e "
+library(DBI)
+library(RMySQL)
+library(epical)
+
+metadata <- function(db, tabla, corrida){
+  
+  con <- dbConnect(MySQL(),
+                   user = 'ingreso',
+                   password = '123ingreso321',
+                   host = 'localhost',
+                   dbname = db)
+  if(db == 'seqcoviddb'){
+    query = paste0('SELECT NETLAB,FECHA_TM,REGION,NUMERACION_PLACA,CORRIDA,VACUNADO,SEXO,EDAD FROM metadata WHERE CORRIDA = ',corrida,';')
+  }else{
+    query = paste0('SELECT NETLAB,LINAGES,VOC_VOI FROM nextrain2gisaid WHERE CORRIDA = ',corrida,';')
+  }
+  dbSendQuery(con, 'SET NAMES utf8mb4;')
+  on.exit(dbDisconnect(con))
+  rs = dbSendQuery(con, query);
+  df = fetch(rs, -1);
+  dbClearResult(rs)
+  return(df)
+}
+
+write_doc <- function(df_a,df_b){
+  
+  datamerge <- merge(x = df_a, y = df_b, by = 'NETLAB', all = TRUE)
+  
+  datamerge['VACUNADO'][datamerge['VACUNADO'] == 'SI'] = 'Vaccinated against SARS-CoV-2'
+  datamerge['VACUNADO'][datamerge['VACUNADO'] == 'NO'] = 'Not Vaccinated against SARS-CoV-2'
+  datamerge['VACUNADO'][datamerge['VACUNADO'] == 'NO INDICA'] = NA
+  nn <- nrow(datamerge)
+  
+  data <- data.frame('N'= datamerge['NUMERACION_PLACA'],'strain'= datamerge['NETLAB'],'gisaid'=datamerge['CORRIDA'],
+                     'date'= datamerge['FECHA_TM'],'region'= datamerge['REGION'],'host'= rep('Human',nn),'gender'= datamerge['SEXO'] ,'age'= datamerge['EDAD'],
+                     'VAC'= datamerge['VACUNADO'],'lineage'= datamerge['LINAGES'],'VOC.VOI' = datamerge['VOC_VOI'] )
+  
+  
+  data <- data[!is.na(data['FECHA_TM']),]  
+  data <- add_epi_week(data, 'FECHA_TM', system = 'cdc')
+  data['Date'] <- epi_week_date(data['epi_week'], data['epi_year'], system = 'cdc')
+  write.csv(data, '"$OUT".csv', row.names = FALSE)
+}
+
+
+
+if(nchar('"$NAME"') == 0 && nchar('"$COR"') != 0 ){
+  df_a <- metadata('seqcoviddb', 'metadata',"$COR")
+  df_b <- metadata('SARS_GENOMES', 'nextrain2gisaid',"$COR")
+  write_doc(df_a = df_a,df_b = df_b)
+}
+
+if( nchar('"$NAME"') != 0 && nchar('"$COR"') != 0 ){
+  cat('Is no valid two options : ', '--"$NAME"--','--"$COR"--')
+}
+	"
+sed -i "s/,NA,/,,/g" ${OUT}.csv
+sed -i "s/,NA,/,,/g" ${OUT}.csv
+sed -i "s/,NA/,/g" ${OUT}.csv
+
+
+
+else
+
+	echo "Error input see: sql2gisaid -help" 1>&2
+
+fi
