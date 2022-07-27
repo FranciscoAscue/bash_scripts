@@ -1,0 +1,24 @@
+#!/bin/bash
+
+CSV=$1
+DTSV=$2
+CORRIDA=$3
+sed -i "s/Consensus_//g" $CSV
+sed -i "s/_S\([0-9]\+\)_threshold_0.6_quality_25//g" $CSV
+sed -i "s/_S\([0-9]\+\)//g" $DTSV
+
+Rscript -e "
+a <- read.table('"$DTSV"')
+colnames(a) <- c('taxon', 'MeanCoverage','NonN')
+pango <- read.csv('"$CSV"')
+tmp <- data.frame(pango['taxon'], corrida=rep("$CORRIDA",nrow(a)))
+pango <- cbind(tmp, pango[c('lineage','scorpio_call')])
+data <- merge(pango, a , by = 'taxon')
+data['lineage'][data['NonN'] < 90] <- 'None'
+data['scorpio_call'][data['NonN'] < 90] <- NA
+write.csv(data, 'nextrain2gisaid.csv', row.names = FALSE)
+"
+
+sed -i "s/,NA,/,,/g" nextrain2gisaid.csv
+sed -i "s/,NA,/,,/g" nextrain2gisaid.csv
+sed -i "s/,NA/,/g" nextrain2gisaid.csv
