@@ -1,0 +1,47 @@
+#!/bin/bash
+
+#$0
+#$1
+#$2
+#$3
+genomelen=$4
+
+#Pasos iniciales
+#Generar el index del genoma con samtools
+
+#samtools2 faidx genome_samtools/NC_045512_2.fasta
+
+#Generar el index del para mapeo bwa
+
+#bwa index -a is genome_reference/NC_045512_2.fasta
+
+# Generar el mapeo usando bwa mem
+
+bwa mem -t 4 -o $3.sam genome_reference/NC_045512_2.fasta $1 $2
+
+samtools view -b -S -o $3.bam -@ 3 $3.sam
+
+samtools sort -o $3_sort.bam --output-fmt BAM -@ 2 $3.bam
+
+samtools index -b -@ 2 $3_sort.bam
+
+# Llamado de variantes con al menos 20% de frecuencia y calidad mayor a 25
+
+samtools mpileup -A -d 0 --reference genome_samtools/NC_045512_2.fasta -B -Q 0 $3_sort.bam | ivar variants -p $3
+
+# Generar Fasta consenso calidad mayor a 25, profundidad mínima de 25 y la frecuencia del alelo anterno mayor a 55%
+
+samtools mpileup -A -d 0 -Q 0 $3_sort.bam | ivar consensus -p $3 -q 25 -t 0.60 -n N -m 20
+
+# Remove files
+
+rm $3.sam $3.bam $3.qual.txt
+
+DEP=( `samtools depth ${file}_sort.bam| awk '{sum+=$3}END{print sum/'$genomelen'}' `)
+NPE=( `seqtk comp ${file}.fa | awk '{x=$3+$4+$5+$6;y=$2;print (1-(y-x)/y)*100}'`)
+
+echo "$file ${DEP}x $NPE"
+
+#rm $3.qual.txt
+
+
