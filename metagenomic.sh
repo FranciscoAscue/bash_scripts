@@ -28,5 +28,27 @@ kraken2 --report Kraken/${FILE}.txt --db $HOME/DB/kraken_db/minikraken2_v2_8GB_2
 ## extraer 2 columnas (nombre y txID)
 cut -f2,3 ${FILE}.out > ${FILE}.input
 
+### install krona
+### miniconda 
+conda create -c bioconda -n krona_env krona  -y
+conda activate krona_env
+mkdir /home/test1/miniconda3/envs/krona_env/bin/taxonomy
+ktUpdateTaxonomy.sh 
+cd opt/krona/scripts/
+mkdir bin/scripts
+cd bin/taxonomy/
+cd scripts/
+ln -s ~/miniconda3/envs/krona_env/opt/krona/scripts/taxonomy.make .
+ktUpdateTaxonomy.sh
+ln -s /home/test1/miniconda3/envs/krona_env/opt/krona/scripts/extractTaxonomy.pl .
+ktUpdateTaxonomy.sh
+cd ~/miniconda3/envs/krona_env/opt/krona/taxonomy/
+./updateTaxonomy.sh
+
+### Anaconda
+
+
+
+
 ### ejecutar krona
 ktImportTaxonomy ${FILE}.input -o ${FILE}.html
